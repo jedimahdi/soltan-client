@@ -1,0 +1,41 @@
+{
+  "name": "soltan-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "source": "public/index.html",
+  "staticFiles": {
+    "staticPath": "static"
+  },
+  "scripts": {
+    "postinstall": "spago install",
+    "start": "concurrently -k npm:start:*",
+    "start:spago": "spago build --watch --clear-screen",
+    "start:parcel": "parcel serve -p 3000 --open",
+    "build": "spago build && parcel build",
+    "test": "spago -x test.dhall test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@parcel/packager-raw-url": "^2.9.2",
+    "@parcel/packager-xml": "^2.9.2",
+    "@parcel/transformer-raw": "^2.9.2",
+    "concurrently": "^8.2.0",
+    "esbuild": "^0.18.7",
+    "parcel": "^2.9.2",
+    "parcel-plugin-static-files-copy": "^2.6.0",
+    "parcel-reporter-static-files-copy": "^1.5.0",
+    "parcel-transformer-ogimage": "^1.0.3",
+    "process": "^0.11.10",
+    "purescript": "^0.15.9",
+    "spago": "^0.21.0"
+  },
+  "dependencies": {
+    "xhr2": "^0.2.1"
+  }
+}
