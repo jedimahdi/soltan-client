@@ -27,6 +27,9 @@ instance decodeUsername :: DecodeJson Username where
       Just username -> Right username
       Nothing -> Left $ UnexpectedValue json
 
+instance showUsername :: Show Username where
+    show = toString
+
 codec :: JsonCodec Username
 codec = dimap (\(Username user) -> user) Username CA.string
 

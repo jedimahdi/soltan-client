@@ -60,7 +60,8 @@ data Action
   = Initialize
   | HandleUsernameInput String
   | Submit Event
-  | JoinTable TableName
+  | JoinTable TableId
+  | OnNewTable
   | ChooseHokm Suit
   | PlayCard Card
 
@@ -96,11 +97,12 @@ component = H.mkComponent
           Just username -> do
             sendMsg $ Login username
             liftEffect $ HTML.window >>= Window.document >>= HTMLDocument.setTitle s.usernameInput
-      GameLobby _, JoinTable tableName -> sendMsg $ SubscribeToTable tableName
+      GameLobby _, JoinTable tableId -> sendMsg $ SubscribeToTable tableId
+      GameLobby _, OnNewTable -> sendMsg NewTable
       InGame { game: GameChoosingHokm g, table }, ChooseHokm suit
-        | g.hakem == g.playerIndex -> sendMsg $ ChooseHokmMsg (table.tableName) suit
+        | g.hakem == g.playerIndex -> sendMsg $ ChooseHokmMsg (table.id) suit
       InGame { game: GameInProgress g, table }, PlayCard card
-        | g.turn == g.playerIndex -> sendMsg $ PlayCardMsg (table.tableName) card
+        | g.turn == g.playerIndex -> sendMsg $ PlayCardMsg (table.id) card
       _, _ -> pure unit
 
   handleQuery :: forall a. Query a -> H.HalogenM State Action () Output m (Maybe a)
@@ -108,8 +110,8 @@ component = H.mkComponent
     ReceiveMessage msg a -> do
       logInfo $ "Received: " <> msg
       case msgInParse msg of
-        Nothing -> logError "Failed to parse MsgIn"
-        Just m -> handleMsg m
+        Left e -> logError $ "Failed to parse MsgIn2: " <> show e
+        Right m -> handleMsg m
       pure (Just a)
 
   handleMsg :: MsgIn -> H.HalogenM State _ _ Output m Unit
@@ -157,12 +159,12 @@ renderLogin state =
 renderLobby :: forall w. GameLobbyState -> HH.HTML w Action
 renderLobby state = case state.tables of
   Loading -> HH.text "Lobby Loading..."
-  GotData tables -> HH.div_ $ map renderTable tables
+  GotData tables -> HH.div_ $ [HH.button [HP.type_ HP.ButtonButton, HE.onClick (const OnNewTable)] [ HH.text "New Table"] , HH.div_ $ map renderTable tables]
   where
   renderTable :: forall p. TableSummary -> HH.HTML p Action
   renderTable table = HH.div_
-    [ HH.text (table.tableName <> " - " <> show table.playerCount <> "/4")
-    , HH.button [ HP.type_ HP.ButtonButton, HE.onClick (\_ -> JoinTable table.tableName) ] [ HH.text "Join" ]
+    [ HH.text (show table.id <> " - " <> show table.users <> "/4")
+    , HH.button [ HP.type_ HP.ButtonButton, HE.onClick (\_ -> JoinTable table.id) ] [ HH.text "Join" ]
     ]
 
 renderScoreboard

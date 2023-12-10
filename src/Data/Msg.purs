@@ -10,23 +10,26 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Foreign.Object as Object
 import Soltan.Data.Card (Suit, Card)
-import Soltan.Data.Game (Game, GameSummary)
+import Soltan.Data.Game (Game)
 import Soltan.Data.Username (Username)
 import Soltan.Data.Username as Username
 
 type TableName = String
+type TableId = Number
 
 type TableSummary =
-  { tableName :: TableName
-  , playerCount :: Int
+  { id :: TableId
+  , users :: Array Username
+  , disconnectedUsers :: Array Username
   }
 
 data MsgOut
   = Login Username
   | GetTables
-  | SubscribeToTable TableName
-  | ChooseHokmMsg TableName Suit
-  | PlayCardMsg TableName Card
+  | NewTable
+  | SubscribeToTable TableId
+  | ChooseHokmMsg TableId Suit
+  | PlayCardMsg TableId Card
 
 instance encodeMsgOut :: EncodeJson MsgOut where
   encodeJson (Login username) = Json.fromObject
@@ -41,7 +44,11 @@ instance encodeMsgOut :: EncodeJson MsgOut where
   encodeJson (SubscribeToTable tableName) = Json.fromObject
     $ Object.fromFoldable
         [ Tuple "tag" (Json.fromString "SubscribeToTable")
-        , Tuple "contents" (Json.fromString tableName)
+        , Tuple "contents" (Json.fromNumber tableName)
+        ]
+  encodeJson NewTable = Json.fromObject
+    $ Object.fromFoldable
+        [ Tuple "tag" (Json.fromString "NewTable")
         ]
   encodeJson (ChooseHokmMsg tableName suit) = Json.fromObject
     $ Object.fromFoldable
@@ -49,7 +56,7 @@ instance encodeMsgOut :: EncodeJson MsgOut where
         , Tuple "contents"
             ( Json.fromObject $ Object.fromFoldable
                 [ Tuple "tag" (Json.fromString "ChooseHokmMsg")
-                , Tuple "contents" (Json.fromArray [ Json.fromString tableName, encodeJson suit ])
+                , Tuple "contents" (Json.fromArray [ Json.fromNumber tableName, encodeJson suit ])
                 ]
             )
         ]
@@ -59,7 +66,7 @@ instance encodeMsgOut :: EncodeJson MsgOut where
         , Tuple "contents"
             ( Json.fromObject $ Object.fromFoldable
                 [ Tuple "tag" (Json.fromString "PlayCardMsg")
-                , Tuple "contents" (Json.fromArray [ Json.fromString tableName, encodeJson card ])
+                , Tuple "contents" (Json.fromArray [ Json.fromNumber tableName, encodeJson card ])
                 ]
             )
         ]
@@ -110,9 +117,5 @@ decodeTriple decoderA decoderB decoderC json = decodeArray Right json >>= f
     [ a, b, c ] -> Triple <$> decoderA a <*> decoderB b <*> decoderC c
     _ -> Left $ TypeMismatch "Triple"
 
-msgInParse :: String -> Maybe MsgIn
-msgInParse s = case parseJson s of
-  Left _ -> Nothing
-  Right json -> case decodeJson json of
-    Left _ -> Nothing
-    Right msg -> Just msg
+msgInParse :: String -> Either JsonDecodeError MsgIn
+msgInParse s = parseJson s >>= decodeJson
