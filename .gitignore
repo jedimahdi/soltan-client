@@ -11,3 +11,4 @@
 /dist/
 /.direnv/
 /.parcel-cache/
+src/index.prod.js

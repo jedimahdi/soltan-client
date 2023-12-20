@@ -10,28 +10,23 @@
     "staticPath": "static"
   },
   "scripts": {
-    "postinstall": "spago install",
-    "start": "concurrently -k npm:start:*",
-    "start:spago": "spago build --watch --clear-screen",
-    "start:parcel": "parcel serve -p 3000 --open",
-    "build": "spago build && parcel build",
+    "build:spago": "spago build",
+    "build:spago:prod": "spago build && spago bundle-app --to './src/index.prod.js'",
+    "build": "rm -rf dist && npm run build:spago:prod && vite build",
+    "start:spago": "spago build --watch",
+    "start": "vite",
+    "spago": "spago",
     "test": "spago -x test.dhall test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "devDependencies": {
-    "@parcel/packager-raw-url": "^2.10.3",
-    "@parcel/packager-xml": "^2.10.3",
-    "@parcel/transformer-raw": "^2.10.3",
-    "concurrently": "^8.2.2",
-    "esbuild": "^0.19.8",
-    "parcel": "^2.10.3",
-    "parcel-plugin-static-files-copy": "^2.6.0",
-    "parcel-reporter-static-files-copy": "^1.5.3",
-    "parcel-transformer-ogimage": "^1.0.3",
-    "process": "^0.11.10",
-    "spago": "^0.21.0"
+    "purescript": "^0.15.10",
+    "spago": "^0.21.0",
+    "vite": "^5.0.10",
+    "vite-plugin-ejs": "^1.7.0"
   },
   "dependencies": {
     "xhr2": "^0.2.1"

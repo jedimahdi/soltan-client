@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <title>Soltan</title>
@@ -11,8 +11,11 @@
       content="Who Wants to Be a Millionaire - but with Types"
     />
     <link rel="stylesheet" href="./main.css" />
-    <script type="module" src="./index.js"></script>
+    <% if(isDev){ %>
+    <script type="module" src="/src/index.dev.js"></script>
+    <% } else { %>
+    <script type="module" src="/src/index.prod.js"></script>
+    <% } %>
   </head>
-  <body>
-  </body>
+  <body></body>
 </html>
