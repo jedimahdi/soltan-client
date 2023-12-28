@@ -21,7 +21,7 @@ import Soltan.Capability.LogMessages (class LogMessages, logError, logInfo)
 import Soltan.Capability.Now (class Now)
 import Soltan.Component.Assets.Images (cardLargeImage, cardMediumImage, cardSmallImage)
 import Soltan.Component.HTML.Utils (css, whenElem)
-import Soltan.Data.Card (Card, Suit(..))
+import Soltan.Data.Card (Card, Rank(..), Suit(..))
 import Soltan.Data.Username (Username)
 import Soltan.Data.Username as Username
 import Web.Event.Event (Event)
@@ -97,7 +97,7 @@ component = H.mkComponent
           Just username -> do
             sendMsg $ Login username
             liftEffect $ HTML.window >>= Window.document >>= HTMLDocument.setTitle s.usernameInput
-      GameLobby _, JoinTable tableId -> sendMsg $ SubscribeToTable tableId
+      GameLobby _, JoinTable tableId -> sendMsg $ JoinTableMsg tableId
       GameLobby _, OnNewTable -> sendMsg NewTable
       InGame { game: GameChoosingHokm g, table }, ChooseHokm suit
         | g.hakem == g.playerIndex -> sendMsg $ ChooseHokmMsg (table.id) suit
@@ -121,9 +121,12 @@ component = H.mkComponent
       GameLogin _, AuthSuccess username -> do
         sendMsg $ GetTables
         H.put $ GameLobby { username, tables: Loading }
-      GameLobby s, TableList tables -> H.put (GameLobby $ s { tables = GotData tables })
-      GameLobby s, SuccessfullySubscribedToTable _ table -> H.put $ InGame { table, username: s.username, game: GameBeforeStart }
-      InGame s, NewGameStateSummary _ game -> H.put (InGame $ s { game = game })
+      GameLobby s, TableList tables ->
+        H.put (GameLobby $ s { tables = GotData tables })
+      GameLobby s, SuccessfullySubscribedToTable table ->
+        H.put $ InGame { table, username: s.username, game: GameBeforeStart }
+      InGame s, NewGameStateSummary _ game ->
+        H.put (InGame $ s { game = game })
       _, _ -> pure unit
 
   sendMsg :: MsgOut -> H.HalogenM _ _ _ Output m Unit
@@ -143,6 +146,7 @@ renderLogin :: forall w. GameLoginState -> HH.HTML w Action
 renderLogin state =
   HH.div_
     [ HH.h1_ [ HH.text "Login" ]
+    , renderCard { suit: Spades, rank: Ace }
     , HH.form
         [ HE.onSubmit Submit ]
         [ HH.input
@@ -155,11 +159,16 @@ renderLogin state =
             [ HH.text "Login" ]
         ]
     ]
+  where
+  renderCard card = HH.div [ css "card" ] [ HH.img [ HP.src (cardMediumImage card) ] ]
 
 renderLobby :: forall w. GameLobbyState -> HH.HTML w Action
 renderLobby state = case state.tables of
   Loading -> HH.text "Lobby Loading..."
-  GotData tables -> HH.div_ $ [HH.button [HP.type_ HP.ButtonButton, HE.onClick (const OnNewTable)] [ HH.text "New Table"] , HH.div_ $ map renderTable tables]
+  GotData tables -> HH.div_
+    [ HH.button [ HP.type_ HP.ButtonButton, HE.onClick (const OnNewTable) ] [ HH.text "New Table" ]
+    , HH.div_ $ map renderTable tables
+    ]
   where
   renderTable :: forall p. TableSummary -> HH.HTML p Action
   renderTable table = HH.div_
@@ -177,22 +186,32 @@ renderScoreboard
      | r
      }
   -> HH.HTML w i
-renderScoreboard { yourTeamPoints, rivalTeamPoints, yourTeamTricks, rivalTeamTricks, trumpSuit } = HH.div [ css "scoreboard" ]
-  [ renderTeamScore yourTeamPoints yourTeamTricks false
-  , HH.div [ css "hokm" ] [ HH.div_ [ HH.text $ fromMaybe "Choosing..." (map show trumpSuit) ], HH.div_ [ HH.text "Hokm" ] ]
-  , renderTeamScore rivalTeamPoints rivalTeamTricks true
-
-  ]
+renderScoreboard { yourTeamPoints, rivalTeamPoints, yourTeamTricks, rivalTeamTricks, trumpSuit } =
+  HH.div [ css "scoreboard" ]
+    [ renderTeamScore yourTeamPoints yourTeamTricks false
+    , HH.div [ css "hokm" ]
+        [ HH.div_ [ HH.text $ fromMaybe "Choosing..." (map show trumpSuit) ]
+        , HH.div_ [ HH.text "Hokm" ]
+        ]
+    , renderTeamScore rivalTeamPoints rivalTeamTricks true
+    ]
   where
   renderTeamScore points tricks isRivals = HH.div [ css ("team" <> guard isRivals " team-rivals") ]
     [ HH.div [ css "tricks" ]
-        (replicate tricks (HH.div [ css "trick active" ] []) <> replicate (7 - tricks) (HH.div [ css "trick" ] []))
+        ( replicate tricks (HH.div [ css "trick active" ] [])
+            <> replicate (7 - tricks) (HH.div [ css "trick" ] [])
+        )
     , HH.div [ css "points" ]
-        (replicate points (HH.div [ css "point active" ] []) <> replicate (7 - points) (HH.div [ css "point" ] []))
+        ( replicate points (HH.div [ css "point active" ] [])
+            <> replicate (7 - points) (HH.div [ css "point" ] [])
+        )
     , HH.div_ [ HH.text (if isRivals then "Rivals" else "Ours") ]
     ]
 
-renderBoard :: forall w i r. { player1 :: Player, player2 :: Player, player3 :: Player, player4 :: Player | r } -> HH.HTML w i
+renderBoard
+  :: forall w i r
+   . { player1 :: Player, player2 :: Player, player3 :: Player, player4 :: Player | r }
+  -> HH.HTML w i
 renderBoard { player1, player2, player3, player4 } = HH.div [ css "board" ]
   [ renderPlayer player1 "player1"
   , renderPlayer player2 "player2"
@@ -205,15 +224,18 @@ renderBoard { player1, player2, player3, player4 } = HH.div [ css "board" ]
         [ HH.text $ Username.toString p.username, whenElem p.isHakem (\_ -> HH.text " (hakem)") ]
     , HH.div
         ( [ css "card" ]
-            <> fromMaybe [] (p.playedCard <#> (\playedCard -> [ HP.style $ "background-image: url(" <> cardLargeImage playedCard <> ");" ]))
+            <> fromMaybe [] (p.playedCard <#> playedCardBackground)
         )
         []
     ]
+  playedCardBackground playedCard =
+    [ HP.style $ "background-image: url(" <> cardLargeImage playedCard <> ");" ]
 
 renderPlayerCards :: forall w r. { cards :: Array Card | r } -> HH.HTML w Action
 renderPlayerCards { cards } = HH.div [ css "player-cards" ] (map renderCard cards)
   where
-  renderCard card = HH.div [ css "card", HE.onClick (\_ -> PlayCard card) ] [ HH.img [ HP.src (cardMediumImage card) ] ]
+  renderCard card = HH.div [ css "card", HE.onClick (\_ -> PlayCard card) ]
+    [ HH.img [ HP.src (cardMediumImage card) ] ]
 
 renderGame :: forall w. InGameState -> HH.HTML w Action
 renderGame state = case state.game of

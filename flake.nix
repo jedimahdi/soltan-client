@@ -10,7 +10,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, utils, easy-purescript-nix, ... }:
+  outputs = { nixpkgs, utils, easy-purescript-nix, ... }:
     utils.lib.eachDefaultSystem (system:
       let
         easy-ps = import easy-purescript-nix { inherit pkgs; };
@@ -25,7 +25,8 @@
         devShells.default = pkgs.mkShell
           {
             name = "soltan-client";
-            buildInputs = with pkgs; [ nodejs-18_x purs-tidy purescript-language-server spago purescript nodePackages.prettier gmp ];
+            buildInputs = with pkgs; [ gmp ];
+            nativeBuildInputs = with pkgs; [ nodejs-18_x purs-tidy purescript-language-server spago purescript nodePackages.prettier gmp ];
             shellHook = ''
               export LD_LIBRARY_PATH="${
                 pkgs.lib.makeLibraryPath

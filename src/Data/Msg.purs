@@ -4,7 +4,7 @@ import Data.Argonaut
 import Prelude
 
 import Data.Argonaut.Core as Json
-import Data.Argonaut.Decode.Decoders (decodeArray, decodeString, decodeTuple)
+import Data.Argonaut.Decode.Decoders (decodeArray, decodeInt, decodeNumber, decodeString, decodeTuple)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
@@ -27,7 +27,7 @@ data MsgOut
   = Login Username
   | GetTables
   | NewTable
-  | SubscribeToTable TableId
+  | JoinTableMsg TableId
   | ChooseHokmMsg TableId Suit
   | PlayCardMsg TableId Card
 
@@ -41,9 +41,9 @@ instance encodeMsgOut :: EncodeJson MsgOut where
     $ Object.fromFoldable
         [ Tuple "tag" (Json.fromString "GetTables")
         ]
-  encodeJson (SubscribeToTable tableName) = Json.fromObject
+  encodeJson (JoinTableMsg tableName) = Json.fromObject
     $ Object.fromFoldable
-        [ Tuple "tag" (Json.fromString "SubscribeToTable")
+        [ Tuple "tag" (Json.fromString "JoinTable")
         , Tuple "contents" (Json.fromNumber tableName)
         ]
   encodeJson NewTable = Json.fromObject
@@ -77,8 +77,8 @@ msgOutToString msg = Json.stringify $ encodeJson msg
 data MsgIn
   = AuthSuccess Username
   | TableList (Array TableSummary)
-  | SuccessfullySubscribedToTable TableName TableSummary
-  | NewGameStateSummary TableName Game
+  | SuccessfullySubscribedToTable TableSummary
+  | NewGameStateSummary TableId Game
 
 instance decodeMsgIn :: DecodeJson MsgIn where
   decodeJson json = do
@@ -93,11 +93,11 @@ instance decodeMsgIn :: DecodeJson MsgIn where
         Right $ TableList contents
       "SuccessfullySubscribedToTable" -> do
         contents <- x .: "contents"
-        Tuple tableName tableSummary <- decodeTuple decodeString decodeJson contents
-        Right $ SuccessfullySubscribedToTable tableName tableSummary
+        tableSummary <- decodeJson contents
+        Right $ SuccessfullySubscribedToTable tableSummary
       "NewGameStateSummary" -> do
         contents <- x .: "contents"
-        Tuple tableName game <- decodeTuple decodeString decodeJson contents
+        Tuple tableName game <- decodeTuple decodeNumber decodeJson contents
         Right $ NewGameStateSummary tableName game
       _ -> Left $ UnexpectedValue json
 
